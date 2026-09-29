@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>jevMatcher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ink:#0a2540;--ink2:#425466;--ink3:#8a98a8;--line:#e3e8ee;--line2:#eef1f5;
+  --canvas:#f6f9fc;--white:#fff;--accent:#5b52f5;--accent-soft:#eeedfe;
+  --green:#00a344;--green-fill:#00c805;--green-soft:#e6f8ed;
+  --amber:#b45f06;--amber-soft:#fff3df;--red:#c0362c;--red-soft:#fdecea;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --shadow:0 1px 1px rgba(10,37,64,.04),0 8px 24px -8px rgba(10,37,64,.10);
+}
+*{box-sizing:border-box}
+html{-webkit-font-smoothing:antialiased}
+body{position:relative;margin:0;background:var(--white);color:var(--ink);font:15px/1.55 var(--sans);font-feature-settings:'cv11','ss01'}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+/* nav */
+nav{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{font-weight:700;letter-spacing:-.02em;font-size:16px;display:flex;align-items:center;gap:9px}
+.mark{width:18px;height:18px;border-radius:5px;background:conic-gradient(from 210deg,var(--accent),#3ecf8e,#ffb86b,var(--accent))}
+.pill{font:500 12px var(--mono);padding:4px 9px;border-radius:99px;border:1px solid var(--line);color:var(--ink2);display:inline-flex;gap:7px;align-items:center;background:var(--white)}
+.pill i{width:6px;height:6px;border-radius:50%;background:var(--amber)}
+.pill.live i{background:var(--green-fill)}
+/* hero */
+body::before{content:"";position:absolute;inset:0 0 auto 0;height:620px;z-index:-1;pointer-events:none;
+  background:radial-gradient(560px 300px at 84% 26%,#e4e0ff 0,transparent 70%),radial-gradient(480px 260px at 66% 8%,#d9f6e6 0,transparent 70%),radial-gradient(460px 240px at 98% 62%,#ffe9d4 0,transparent 70%);
+  -webkit-mask-image:linear-gradient(#000 55%,transparent);mask-image:linear-gradient(#000 55%,transparent)}
+html,body{overflow-x:hidden}
+.hero{padding:36px 0 30px}
+.desc{font-size:clamp(24px,3.4vw,34px);line-height:1.2;letter-spacing:-.025em;font-weight:600;max-width:20em;margin:0 0 26px}
+.eyebrow{font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{font-size:clamp(34px,5.4vw,56px);line-height:1.04;letter-spacing:-.035em;font-weight:700;margin:12px 0 14px;max-width:18em}
+.lede{color:var(--ink2);font-size:18px;max-width:34em;margin:0 0 26px}
+.search{display:flex;gap:8px;background:var(--white);border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:var(--shadow);max-width:720px;transition:border-color .15s,box-shadow .15s}
+.search:focus-within{border-color:var(--accent);box-shadow:0 0 0 4px rgba(91,82,245,.12),var(--shadow)}
+.search input{flex:1;border:0;outline:0;font:500 17px var(--sans);padding:12px 12px;background:transparent;color:var(--ink);min-width:0}
+.search input::placeholder{color:var(--ink3);font-weight:400}
+.go{border:0;border-radius:8px;background:var(--ink);color:#fff;font:600 14px var(--sans);padding:0 20px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .15s,transform .05s}
+.go:hover{background:var(--accent)}.go:active{transform:translateY(1px)}.go:disabled{opacity:.55;cursor:wait}
+.go kbd{font:500 11px var(--mono);opacity:.6;border:1px solid rgba(255,255,255,.3);border-radius:4px;padding:0 4px}
+.try{margin:14px 0 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center;color:var(--ink3);font-size:13px}
+.try button{font:500 13px var(--sans);color:var(--ink2);background:rgba(255,255,255,.7);border:1px solid var(--line);border-radius:7px;padding:4px 10px;cursor:pointer}
+.try button:hover{border-color:var(--accent);color:var(--accent)}
+details.opts{margin-top:14px;max-width:720px}
+details.opts summary{cursor:pointer;font-size:13px;color:var(--ink2);list-style:none;display:inline-flex;gap:6px;align-items:center}
+details.opts summary::before{content:"+";font:500 14px var(--mono);width:16px;height:16px;border:1px solid var(--line);border-radius:4px;display:inline-grid;place-items:center;background:#fff}
+details.opts[open] summary::before{content:"–"}
+.optgrid{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:12px;align-items:end;margin-top:12px;background:rgba(255,255,255,.75);border:1px solid var(--line);border-radius:10px;padding:14px}
+.optgrid label{display:block;font-size:12px;color:var(--ink3);margin-bottom:4px}
+.optgrid input[type=text],.optgrid input[type=number],.optgrid select{width:100%;border:1px solid var(--line);border-radius:7px;padding:8px 10px;font:14px var(--sans);color:var(--ink);background:#fff}
+.optgrid .chk{display:flex;gap:7px;align-items:center;font-size:13px;color:var(--ink2);margin:0;padding-bottom:8px}
+/* pipeline */
+section{padding:6px 0 0}
+.pipe{background:var(--white);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+.steps{display:grid;grid-template-columns:repeat(5,1fr);position:relative;border-bottom:1px solid var(--line)}
+.step{padding:16px 16px 14px;position:relative;opacity:.5;transition:opacity .3s,background .3s}
+.step .n{font:500 11px var(--mono);color:var(--ink3);display:flex;align-items:center;gap:8px}
+.step .n b{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:1px solid var(--line);font-weight:500;background:#fff;transition:all .3s}
+.step h3{margin:7px 0 1px;font-size:14px;font-weight:600;letter-spacing:-.01em}
+.step p{margin:0;font-size:12.5px;color:var(--ink2)}
+.step .t{font:500 11.5px var(--mono);color:var(--ink3);margin-top:6px;min-height:16px}
+.step.active{opacity:1;background:var(--canvas)}
+.step.active .n b{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 0 0 4px rgba(91,82,245,.15)}
+.step.done{opacity:1}.step.done .n b{background:var(--green-fill);border-color:var(--green-fill);color:#fff}
+.rail{position:absolute;left:0;bottom:-1px;height:2px;background:var(--accent);width:0;transition:width .5s cubic-bezier(.3,.7,.2,1)}
+.stage{min-height:236px;padding:22px 24px;background:var(--white);position:relative}
+.stage .cap{font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-bottom:14px}
+.nav{display:flex;align-items:center;gap:12px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line2)}
+.nav button{font:500 13px var(--sans);color:var(--ink2);border:1px solid var(--line);background:#fff;border-radius:7px;padding:6px 14px;cursor:pointer}
+.nav button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.nav button:disabled{opacity:.4;cursor:default}
+.nav button.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+.nav button.primary:hover:not(:disabled){background:var(--accent);color:#fff;border-color:var(--accent)}
+.nav .pos{font:500 12px var(--mono);color:var(--ink3)}
+.nav .auto{margin-left:auto;font-size:12.5px;color:var(--ink3);display:flex;gap:6px;align-items:center;cursor:pointer}
+.step{cursor:pointer}.step:hover{opacity:.8}.step.active:hover{opacity:1}
+.idle{color:var(--ink2);display:grid;place-items:center;min-height:190px;text-align:center}
+/* stage visuals */
+.fade{opacity:0;transform:translateY(8px);transition:opacity .45s ease,transform .45s ease;transition-delay:calc(var(--i,0)*90ms)}
+.in .fade{opacity:1;transform:none}
+.norm{display:grid;gap:14px;max-width:640px}
+.norm .line{font:500 22px var(--sans);letter-spacing:-.02em}
+.norm .line.o{color:var(--ink3);text-decoration:line-through;text-decoration-color:rgba(138,152,168,.55)}
+.norm .line .chg{background:var(--accent-soft);color:var(--accent);border-radius:4px;padding:0 4px}
+.norm .rules{font:12.5px var(--mono);color:var(--ink2)}
+.lanes{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.lane h4{margin:0 0 2px;font-size:13px;font-weight:600}
+.lane small{display:block;color:var(--ink3);font-size:11.5px;margin-bottom:10px;min-height:32px}
+.hit{display:flex;gap:8px;font-size:12.5px;padding:6px 0;border-top:1px solid var(--line2);line-height:1.3}
+.hit b{font:500 11px var(--mono);color:var(--ink3);min-width:14px;padding-top:1px}
+.fusewrap{display:grid;grid-template-columns:1.2fr 1fr;gap:26px;align-items:start}
+.fusenote{color:var(--ink2);font-size:14px}
+.fusenote big{display:block;font:600 40px var(--sans);letter-spacing:-.03em;color:var(--ink);margin-bottom:4px}
+.frow{display:flex;gap:10px;align-items:center;font-size:13px;padding:6px 0;border-top:1px solid var(--line2)}
+.frow b{font:500 11px var(--mono);color:var(--ink3);min-width:20px}
+.frow .code{margin-left:auto;font:11.5px var(--mono);color:var(--ink3)}
+.jrow{display:grid;grid-template-columns:minmax(0,1.5fr) 2fr 52px;gap:12px;align-items:center;font-size:13px;padding:5px 0;border-top:1px solid var(--line2)}
+.jrow .bar{height:8px;border-radius:4px;background:var(--line2);overflow:hidden}
+.jrow .bar i{display:block;height:100%;width:0;border-radius:4px;background:var(--accent);transition:width .9s cubic-bezier(.2,.7,.2,1);transition-delay:calc(var(--i,0)*70ms + 150ms)}
+.jrow:first-child .bar i{background:var(--green-fill)}
+.jrow .pv{font:500 12px var(--mono);text-align:right}
+.jrow .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.verdict{display:flex;gap:28px;align-items:center}
+.ring{position:relative;width:112px;height:112px;flex:none}
+.ring svg{transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:9}.ring .bg{stroke:var(--line2)}
+.ring .fg{stroke:var(--green-fill);stroke-linecap:round;stroke-dasharray:0 999;transition:stroke-dasharray 1s cubic-bezier(.2,.7,.2,1)}
+.ring.review .fg{stroke:#f0a030}.ring.no_match .fg{stroke:#c0362c}
+.ring span{position:absolute;inset:0;display:grid;place-items:center;font:600 22px var(--sans);letter-spacing:-.02em}
+.tag{display:inline-block;font:600 12px var(--sans);padding:3px 10px;border-radius:99px}
+.tag.accepted{background:var(--green-soft);color:var(--green)}.tag.review{background:var(--amber-soft);color:var(--amber)}.tag.no_match{background:var(--red-soft);color:var(--red)}
+.vname{font:600 26px/1.15 var(--sans);letter-spacing:-.025em;margin:10px 0 6px}
+.vmeta{font:12.5px var(--mono);color:var(--ink2)}
+/* results */
+#results{margin-top:22px;display:none}
+#results.show{display:block;animation:rise .5s ease both}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.receipt{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));border:1px solid var(--line);border-radius:12px;background:var(--white);overflow:hidden}
+.receipt div{padding:14px 16px;border-right:1px solid var(--line)}
+.receipt div:last-child{border-right:0}
+.receipt b{display:block;font:500 19px var(--mono);letter-spacing:-.02em}
+.receipt span{font-size:12px;color:var(--ink3)}
+.receipt .em b{color:var(--green)}
+.note{font-size:12.5px;color:var(--ink3);margin:10px 2px 0}
+.tabs{display:flex;gap:2px;margin:26px 0 0;border-bottom:1px solid var(--line)}
+.tabs button{font:500 14px var(--sans);color:var(--ink2);background:none;border:0;border-bottom:2px solid transparent;padding:10px 14px;cursor:pointer;margin-bottom:-1px}
+.tabs button.on{color:var(--ink);border-color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);text-align:left;padding:12px 10px 8px}
+td{padding:9px 10px;border-top:1px solid var(--line2);vertical-align:top}
+td.m{font:12px var(--mono);color:var(--ink2);white-space:nowrap}
+tr.pick td{background:var(--green-soft)}
+td small{display:block;color:var(--ink3);font-size:12px}
+.chip{display:inline-block;font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:1px 6px;margin:0 4px 3px 0;color:var(--ink3)}
+.chip.on{color:var(--accent);border-color:#cfcbfb;background:var(--accent-soft)}
+.pbar{display:flex;align-items:center;gap:8px}.pbar i{display:block;height:7px;border-radius:4px;background:var(--accent);min-width:2px}
+.err{color:var(--red);font-size:13px;margin-top:10px}
+footer{margin:56px 0 40px;color:var(--ink3);font-size:12.5px;border-top:1px solid var(--line);padding-top:16px}
+@media(max-width:760px){.steps{grid-template-columns:repeat(5,minmax(112px,1fr));overflow-x:auto}.lanes{grid-template-columns:1fr 1fr}.fusewrap{grid-template-columns:1fr}.optgrid{grid-template-columns:1fr 1fr}.verdict{flex-direction:column;align-items:flex-start}}
+@media(prefers-reduced-motion:reduce){.fade,.jrow .bar i,.ring .fg,.rail{transition:none!important}#results.show{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <div class="brand"><span class="mark"></span>jevMatcher</div>
+    <span class="pill" id="mode"><i></i><span>…</span></span>
+  </nav>
+
+  <header class="hero">
+    <p class="desc">Match food descriptions to FNDDS titles and codes using Retrieval + Jev.</p>
+    <form id="f">
+      <div class="search">
+        <input id="food" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. Lance PB Crakers" required>
+        <button class="go" id="go">Match <kbd>↵</kbd></button>
+      </div>
+      <div class="try" id="try">Try
+        <button type="button">Lance PB Crakers</button><button type="button">scrambled eggs</button><button type="button">Swerve sweetener</button><button type="button">carrots</button><button type="button">chocolate cake</button>
+      </div>
+      <details class="opts"><summary>Options</summary>
+        <div class="optgrid">
+          <div><label for="ctx">Context</label><input type="text" id="ctx" placeholder="brand, portion, how it was eaten"></div>
+          <div><label for="k">Candidates (K)</label><input type="number" id="k" value="30" min="5" max="100"></div>
+          <div><label for="sh">Shuffle-average</label><select id="sh"><option value="1">Off</option><option value="2">2 passes</option><option value="3">3 passes</option></select></div>
+          <label class="chk"><input type="checkbox" id="vf">Verify top-1</label>
+        </div>
+      </details>
+      <div class="err" id="msg"></div>
+    </form>
+  </header>
+
+  <section>
+    <div class="pipe" id="pipe">
+      <div class="steps" id="steps"><div class="rail" id="rail"></div></div>
+      <div class="stage" id="stage">
+        <div id="stagebody"><div class="idle">Run a lookup, then step through what happens.</div></div>
+        <div class="nav" id="nav" hidden>
+          <button type="button" id="back">← Back</button>
+          <span class="pos" id="pos"></span>
+          <button type="button" id="next" class="primary">Next →</button>
+          <label class="auto"><input type="checkbox" id="auto"> Auto-play</label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="results">
+    <div class="receipt" id="receipt"></div>
+    <p class="note" id="statnote"></p>
+    <div class="tabs" id="tabs"><button class="on" data-t="jev">Jev output</button><button data-t="ret">Retrieval shortlist</button></div>
+    <div id="tab-jev"><table id="jev"></table></div>
+    <div id="tab-ret" hidden><table id="ret"></table></div>
+  </section>
+
+  <footer>Codes from FNDDS 2021–2023 (FoodData Central release 2024-10-31). Cost uses the vendor-quoted $0.042 per 1M input tokens.</footer>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ms=s=>{const v=s*1000;return (v<10?v.toFixed(1):Math.round(v))+' ms'};
+const sleep=t=>new Promise(r=>setTimeout(r,t));
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const STEPS=[['Normalize','Clean the string'],['Retrieve','Four searches'],['Shortlist','Fuse to top K'],['Jev picks','Choice over K'],['Decide','Accept or review']];
+const DUR=[1000,1500,1300,1500,1300];
+let info={mode:'mock'},last=null;
+
+$('steps').insertAdjacentHTML('afterbegin',STEPS.map((s,i)=>`<div class="step" id="s${i}"><div class="n"><b>${i+1}</b></div><h3>${s[0]}</h3><div class="t" id="t${i}"></div></div>`).join(''));
+
+fetch('/api/info').then(r=>r.json()).then(i=>{info=i;const m=$('mode');m.className='pill'+(i.mode==='live'?' live':'');m.lastElementChild.textContent=i.mode==='live'?'Live Jev':'Simulated Jev';demo()});
+
+function setStep(i){ // i = active index; earlier done
+  STEPS.forEach((_,j)=>{const el=$('s'+j);el.classList.toggle('active',j===i);el.classList.toggle('done',j<i)});
+  $('rail').style.width=(i<0?0:(i+1)/5*100)+'%';
+}
+function stage(html,cap){const b=$('stagebody');b.innerHTML=html;requestAnimationFrame(()=>requestAnimationFrame(()=>b.classList.add('in')));b.classList.remove('in')}
+
+function normHTML(d){
+  const o=d.query.trim().split(/\s+/),orig=new Set(o.map(w=>w.toLowerCase().replace(/[^\w&%/]/g,'')));
+  const n=d.normalized.split(' ').map(w=>orig.has(w)?esc(w):`<span class="chg">${esc(w)}</span>`).join(' ');
+  return `<div class="norm"><div class="line o fade" style="--i:0">${esc(d.query)}</div><div class="line fade" style="--i:2">${n||'—'}</div></div>`}
+function lanesHTML(d){return `<div class="lanes">`+Object.entries(d.lanes).map(([n,h],c)=>`<div class="lane"><h4 class="fade" style="--i:${c}">${n}</h4>${h.map((x,r)=>`<div class="hit fade" style="--i:${c+r+2}"><b>${x.rank}</b><span>${esc(x.description)}</span></div>`).join('')}</div>`).join('')+`</div>`}
+function fuseHTML(d){const rows=d.candidates.slice(0,7);return `<div class="fusewrap"><div class="fusenote fade" style="--i:0"><big>${d.candidates.length}</big>candidates after reciprocal-rank fusion. Each method's list is scored 1/(60+rank) and the scores are added, so foods several methods agree on rise to the top.</div><div>${rows.map((c,i)=>`<div class="frow fade" style="--i:${i+1}"><b>${c.rank}</b><span>${esc(c.description)}</span><span class="code">${c.code}</span></div>`).join('')}</div></div>`}
+function jevHTML(d){const p=d.result.probabilities.slice(0,6),mx=Math.max(...p.map(x=>x.p),1e-9);return `<div>${p.map((x,i)=>`<div class="jrow"><span class="nm" title="${esc(x.option)}">${esc(x.option)}</span><div class="bar"><i data-w="${(x.p/mx*100).toFixed(1)}" style="--i:${i}"></i></div><span class="pv">${(x.p*100).toFixed(1)}%</span></div>`).join('')}</div>`}
+function verdictHTML(d){const r=d.result,top=r.alternatives[0],lab={accepted:'Accepted',review:'Needs review',no_match:'No match'}[r.status];
+  const name=r.description||(top?top.description:'No candidate fits'),code=r.code||(top?top.code:'');
+  return `<div class="verdict"><div class="ring ${r.status} fade" style="--i:0"><svg width="112" height="112" viewBox="0 0 112 112"><circle class="bg" cx="56" cy="56" r="48"/><circle class="fg" cx="56" cy="56" r="48" data-c="${(r.confidence*301.6).toFixed(1)}"/></svg><span>${Math.round(r.confidence*100)}%</span></div><div><span class="tag ${r.status} fade" style="--i:1">${lab}</span><div class="vname fade" style="--i:2">${esc(name)}</div><div class="vmeta fade" style="--i:3">${code?'code '+code+' · ':''}${esc(r.matcher.jev_model)}${r.verify_p!=null?' · verify '+Math.round(r.verify_p*100)+'%':''}</div></div></div>`}
+
+function settle(){document.querySelectorAll('.jrow .bar i').forEach(e=>e.style.width=e.dataset.w+'%');document.querySelectorAll('.ring .fg').forEach(e=>e.style.strokeDasharray=e.dataset.c+' 999')}
+
+let cur=-1,autoTimer=null,shown=false;
+function views(d){return [()=>stage(normHTML(d),'1 · Normalize'),()=>stage(lanesHTML(d),'2 · Four independent searches, top hits each'),()=>stage(fuseHTML(d),'3 · Fuse into one shortlist'),()=>{stage(jevHTML(d),'4 · Jev distributes probability across the shortlist');setTimeout(settle,60)},()=>{stage(verdictHTML(d),'5 · Decide');setTimeout(settle,60)}]}
+function goto(i,manual=true){
+  if(!last||i<0||i>4)return;
+  if(manual)clearTimeout(autoTimer);
+  cur=i;const d=last,t=d.result.timings_s;
+  const times=[ms(t.normalize),ms(t.retrieve),d.candidates.length+' foods',ms(t.jev_match+t.jev_verify),'rules'];
+  setStep(i);
+  STEPS.forEach((_,j)=>$('t'+j).textContent=j<=i?times[j]:'');
+  views(d)[i]();
+  $('nav').hidden=false;$('pos').textContent=`Step ${i+1} of 5`;
+  $('back').disabled=i===0;
+  $('next').textContent=i===4?'Replay ↺':'Next →';
+  if(i===4){shown=true;showResults(d)}
+  if($('auto').checked&&i<4&&!reduce)autoTimer=setTimeout(()=>goto(i+1,false),DUR[i]+400);
+}
+function begin(d){last=d;shown=false;$('results').classList.remove('show');clearTimeout(autoTimer);const m=location.hash.match(/step=(\d)/);goto(m?Math.min(4,Math.max(0,m[1]-1)):0,false)} // #step=N deep-links a step
+$('next').onclick=()=>goto(cur===4?0:cur+1);
+$('back').onclick=()=>goto(cur-1);
+$('steps').onclick=e=>{const el=e.target.closest('.step');if(el&&last)goto(+el.id.slice(1))};
+$('auto').onchange=()=>{clearTimeout(autoTimer);if($('auto').checked&&last&&cur<4)goto(cur,false)};
+document.addEventListener('keydown',e=>{if(/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)||!last)return;if(e.key==='ArrowRight')goto(cur===4?4:cur+1);if(e.key==='ArrowLeft')goto(cur-1)});
+
+function showResults(d){
+  const r=d.result,t=r.timings_s,total=t.normalize+t.retrieve+t.jev_match+t.jev_verify;
+  $('receipt').innerHTML=[['Input tokens',r.input_tokens.toLocaleString()],['Output tokens',r.output_tokens],['Jev cost','$'+r.cost_usd.toFixed(6),1],['Retrieval',ms(t.retrieve)],['Jev call',ms(t.jev_match)],...(r.matcher.verify?[['Verify call',ms(t.jev_verify)]]:[]),['Pipeline',ms(total)]].map(([k,v,e])=>`<div class="${e?'em':''}"><b>${v}</b><span>${k}</span></div>`).join('');
+  $('statnote').textContent=d.mode==='mock'?'Simulated Jev: tokens are estimated (about 4 characters per token) and the Jev latency is artificial. Retrieval time is real.':'Tokens and cost come from the API response. Latency is measured from this server.';
+  const pr=r.probabilities,mx=Math.max(...pr.map(x=>x.p),1e-9);
+  $('jev').innerHTML='<tr><th>Option</th><th>Code</th><th style="width:36%">Probability</th></tr>'+pr.map((x,i)=>`<tr class="${i===0&&r.status==='accepted'?'pick':''}"><td>${esc(x.option)}</td><td class="m">${x.code||''}</td><td><div class="pbar"><i style="width:${(x.p/mx*100).toFixed(1)}%"></i><span class="m">${(x.p*100).toFixed(1)}%</span></div></td></tr>`).join('');
+  const names=Object.keys(d.candidates[0]?.methods||{}),top=r.alternatives[0];
+  $('ret').innerHTML='<tr><th>#</th><th>Code</th><th>Description</th><th>Method ranks</th><th>Jev</th></tr>'+d.candidates.map(c=>`<tr class="${top&&c.code===top.code?'pick':''}"><td class="m">${c.rank}</td><td class="m">${c.code}</td><td>${esc(c.description)}${c.additional.length?`<small>${esc(c.additional.join('; '))}</small>`:''}</td><td>${names.map(n=>`<span class="chip ${c.methods[n]?'on':''}">${n} ${c.methods[n]??'–'}</span>`).join('')}</td><td class="m">${c.p!=null?(c.p*100).toFixed(1)+'%':''}</td></tr>`).join('');
+  $('results').classList.add('show');
+}
+$('tabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));$('tab-jev').hidden=b.dataset.t!=='jev';$('tab-ret').hidden=b.dataset.t!=='ret'};
+
+async function run(food){
+  $('go').disabled=true;$('msg').textContent='';clearTimeout(autoTimer);setStep(0);$('nav').hidden=true;
+  $('stagebody').innerHTML='<div class="idle">Working…</div>';
+  try{
+    const r=await fetch('/api/match',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({food,context:$('ctx').value,k:+$('k').value,shuffles:+$('sh').value,verify:$('vf').checked})});
+    if(!r.ok){const j=await r.json();throw new Error(j.detail?.[0]?.msg||r.statusText)}
+    begin(await r.json());
+  }catch(err){$('msg').textContent=String(err.message||err);setStep(-1);$('nav').hidden=true;$('stagebody').innerHTML='<div class="idle">Something went wrong.</div>'}
+  $('go').disabled=false;
+}
+$('f').addEventListener('submit',e=>{e.preventDefault();run($('food').value)});
+$('try').onclick=e=>{if(e.target.tagName==='BUTTON'){$('food').value=e.target.textContent;run(e.target.textContent)}};
+function demo(){ if(info.mode==='mock'){$('food').value='Lance PB Crakers';run('Lance PB Crakers')} } // auto-demo only when it costs nothing
+</script>
+</body>
+</html>

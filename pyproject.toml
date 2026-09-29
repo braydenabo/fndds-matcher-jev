@@ -1,0 +1,18 @@
+[project]
+name = "jevmatcher"
+version = "0.1.0"
+description = "Free-text food -> FNDDS code matcher using TypeSafe's Jev as the decision model"
+requires-python = ">=3.11"
+dependencies = ["rapidfuzz", "numpy", "scikit-learn", "httpx", "openpyxl"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+jevmatcher = "jevmatcher.cli:main"
+
+[tool.setuptools]
+packages = ["jevmatcher"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
