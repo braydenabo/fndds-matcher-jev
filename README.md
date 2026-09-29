@@ -37,12 +37,12 @@ python3 -m venv .venv
 ```
 This fetches the pinned FoodData Central survey release (FNDDS 2021-2023, release 2024-10-31) into `data/raw/` and builds `data/fndds_index.json` (5,432 foods). Nothing under `data/` is committed.
 
-**3. Get a TypeSafe API key and export it**
-Sign up at [docs.typesafe.ai](https://docs.typesafe.ai/introduction/quickstart) (Jev is in early access). Then, in the terminal you will run the site from:
+**3. Get a TypeSafe API key and save it in `.env`**
+Sign up at [docs.typesafe.ai](https://docs.typesafe.ai/introduction/quickstart) (Jev is in early access). Then create a `.env` file in the repo root containing your key:
 ```bash
-export TYPESAFE_API_KEY='your-key-here'
+cp .env.example .env
 ```
-Keep the key in your environment. Never commit it. `.env` is git-ignored if you prefer a local file, but the app only reads the environment variable.
+Open `.env` and replace `your-key-here` with your key. `.env` is git-ignored, so it is never committed. The app and CLI load it automatically from the repo root or the current directory. A `TYPESAFE_API_KEY` set in your shell (`export TYPESAFE_API_KEY=...`) also works and takes priority over `.env`.
 
 **4. Run the site**
 ```bash

@@ -58,6 +58,9 @@ def _cmd_eval(a) -> None:
 
 
 def main(argv=None) -> None:
+    from .env import load_dotenv
+
+    load_dotenv()
     p = argparse.ArgumentParser(prog="jevmatcher")
     p.add_argument("--index", default=str(DEFAULT_INDEX))
     sub = p.add_subparsers(required=True)

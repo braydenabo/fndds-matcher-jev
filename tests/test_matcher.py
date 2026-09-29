@@ -151,3 +151,18 @@ def test_mock_jev_and_web_app(tmp_path):
     assert r["timings_s"]["jev_match"] > 0 and r["probabilities"][0]["p"] >= r["probabilities"][-1]["p"]
     assert c.post("/api/match", json={"food": "", "k": 5}).status_code == 422
     assert MockJev(simulate_latency=False).ask("s", {"q": {"type": "noul", "instructions": {"food": "a", "candidate": "a"}}}).answers["q"] == 1.0
+
+
+def test_dotenv_loads_without_overriding(tmp_path, monkeypatch):
+    from jevmatcher.env import load_dotenv
+
+    f = tmp_path / ".env"
+    f.write_text("# c\nA_KEY='quoted'\nexport B_KEY=plain\nC_KEY=\"dq\"\nKEEP=fromfile\n")
+    monkeypatch.setenv("KEEP", "fromenv")
+    for k in ("A_KEY", "B_KEY", "C_KEY"):
+        monkeypatch.delenv(k, raising=False)
+    assert load_dotenv(f) == [f]
+    import os
+
+    assert (os.environ["A_KEY"], os.environ["B_KEY"], os.environ["C_KEY"], os.environ["KEEP"]) == ("quoted", "plain", "dq", "fromenv")
+    monkeypatch.delenv("A_KEY"); monkeypatch.delenv("B_KEY"); monkeypatch.delenv("C_KEY")

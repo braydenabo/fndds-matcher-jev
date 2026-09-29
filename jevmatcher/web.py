@@ -15,6 +15,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+from .env import load_dotenv
 from .fndds import FnddsIndex
 from .matcher import FnddsMatcher, Thresholds
 from .mockjev import MockJev
@@ -34,9 +35,10 @@ class MatchRequest(BaseModel):
 
 
 def create_app(live: bool | None = None, index_path: Path | None = None, retriever=None) -> FastAPI:
+    load_dotenv()
     live = not os.environ.get("JEV_MOCK") if live is None else live
     if live and not os.environ.get("TYPESAFE_API_KEY"):
-        raise SystemExit("TYPESAFE_API_KEY is not set. Export it, or set JEV_MOCK=1 for the simulator.")
+        raise SystemExit("TYPESAFE_API_KEY is not set. Put it in .env, export it, or set JEV_MOCK=1 for the simulator.")
     index = FnddsIndex.load(index_path or ROOT / "data" / "fndds_index.json")
     retr: HybridRetriever = retriever or default_retriever(index)
     if live:
