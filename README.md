@@ -10,6 +10,16 @@ food string -> normalize -> retrieve top-K -> Jev Choice -> (verify) -> accepted
                             head-noun + bge-small
 ```
 
+
+
+
+
+https://github.com/user-attachments/assets/007fe594-1532-4dde-ad80-9dcbe85c9685
+
+
+
+
+
 ## Quickstart
 
 Requires Python 3.11+. Every step runs from the repo root.
