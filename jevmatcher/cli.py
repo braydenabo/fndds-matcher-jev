@@ -58,7 +58,7 @@ def _cmd_eval(a) -> None:
     else:
         jev = JevClient()
     m = FnddsMatcher(idx, default_retriever(idx), jev, k=a.k, shuffles=a.shuffles, verify=a.verify)
-    out = evaluate_system(idx, m, load_labels(a.labels), fit_frac=a.fit_frac, seed=a.seed)
+    out = evaluate_system(idx, m, load_labels(a.labels), fit_frac=a.fit_frac, seed=a.seed, workers=a.workers)
     items = out.pop("items")
     if a.out:
         Path(a.out).parent.mkdir(parents=True, exist_ok=True)
@@ -123,6 +123,7 @@ def main(argv=None) -> None:
             s.add_argument("--fit-frac", type=float, default=0.5, help="share of foods assigned to the fit split")
             s.add_argument("--seed", type=int, default=0)
             s.add_argument("--mock", action="store_true", help="use the offline simulator (no key, no cost)")
+            s.add_argument("--workers", type=int, default=8, help="concurrent Jev requests")
         if name == "match":
             s.add_argument("--context", default="")
         s.set_defaults(fn=fn)

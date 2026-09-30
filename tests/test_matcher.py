@@ -225,3 +225,13 @@ def test_eval_out_creates_missing_directory(tmp_path, monkeypatch):
     monkeypatch.setattr("jevmatcher.retrieve.default_retriever", lambda idx: HybridRetriever([FuzzyRetriever(idx), TfidfRetriever(idx)]))
     cli.main(["--index", str(idx_path), "eval", str(lab), "--mock", "--out", str(out)])
     assert out.exists() and '"items"' in out.read_text()
+
+
+def test_parallel_evaluation_matches_sequential():
+    from jevmatcher.evaluate import Label, evaluate_system
+
+    labels = [Label("peanut butter crackers", "54328100"), Label("saltine", "54319000"), Label("peanut butter", "42202000")] * 4
+    seq = evaluate_system(INDEX, matcher(FakeJev("sandwich, peanut")), labels, batch=2, workers=1)
+    par = evaluate_system(INDEX, matcher(FakeJev("sandwich, peanut")), labels, batch=2, workers=4)
+    key = lambda out: [(i["food"], i["pred_code"], i["status"]) for i in out["items"]]  # noqa: E731
+    assert key(seq) == key(par) and seq["top1"] == par["top1"]

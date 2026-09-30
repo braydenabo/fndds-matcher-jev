@@ -4,6 +4,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import math
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -129,12 +130,23 @@ def _summ(items: list[dict]) -> dict:
 
 
 def evaluate_system(
-    index: FnddsIndex, matcher: FnddsMatcher, labels: list[Label], batch: int = 20, fit_frac: float = 0.5, seed: int = 0
+    index: FnddsIndex, matcher: FnddsMatcher, labels: list[Label], batch: int = 20, fit_frac: float = 0.5, seed: int = 0,
+    workers: int = 1,
 ) -> dict:
-    results: list[MatchResult] = []
-    for i in range(0, len(labels), batch):
-        chunk = labels[i : i + batch]
-        results += matcher.match_many([(l.food, l.context) for l in chunk])
+    """workers > 1 sends batches concurrently (retrieval and the Jev request of different batches overlap).
+    Results keep label order. With shuffle-averaging, concurrent batches draw option orders from a shared RNG,
+    so orders (not correctness) can differ from a sequential run."""
+    chunks = [labels[i : i + batch] for i in range(0, len(labels), batch)]
+
+    def run(chunk: list[Label]) -> list[MatchResult]:
+        return matcher.match_many([(l.food, l.context) for l in chunk])
+
+    if workers > 1 and len(chunks) > 1:
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            parts = list(ex.map(run, chunks))
+    else:
+        parts = [run(c) for c in chunks]
+    results: list[MatchResult] = [r for part in parts for r in part]
 
     items, conf, nut = [], [], {k: [] for k in ("kcal", "protein_g", "carb_g", "fat_g")}
     for lab, r in zip(labels, results):
