@@ -256,3 +256,18 @@ def test_target_index_identifies_targets_by_description(tmp_path):
     assert [l.code for l in bm.id_matched] == ['kiwi "green"']
     assert [(l.food, l.code) for l in bm.text_only] == [("spring onion", "onion"), ("beef", "beef")]
     assert all(l.code in {f.code for f in bm.index.foods} for l in bm.text_only)
+
+
+def test_custom_instructions_and_forced_choice():
+    m = matcher(FakeJev("saltine"), instructions="Pick by preparation first.", allow_none=False)
+    r = m.match("crackers")
+    crit = m.jev.calls[0]["f0_match_0"]["criteria"]
+    assert NONE_OPTION not in crit
+    assert m.jev.calls[0]["f0_match_0"]["instructions"]["question"] == "Pick by preparation first."
+    assert r.code == "54319000"
+    default = matcher(FakeJev("saltine"))
+    default.match("crackers")
+    assert NONE_OPTION in default.jev.calls[0]["f0_match_0"]["criteria"]
+    no_none_default = matcher(FakeJev("saltine"), allow_none=False)
+    no_none_default.match("crackers")
+    assert "none of these" not in no_none_default.jev.calls[0]["f0_match_0"]["instructions"]["question"].lower()

@@ -25,6 +25,12 @@ from jevmatcher.targets import load_asa24_foodb
 
 # Semantic-embedding top-K accuracy on the same benchmark's text-only foods, from Lemay et al.
 # Table 5 (GTE-large): original ground truth, then the authors' modified ground truth.
+# Lemay et al.'s hybrid prompt chose by these criteria, in priority order (adapted to Jev's Choice question).
+PAPER_PROMPT = (
+    "Which candidate best matches `food`? Decide using these criteria in priority order: "
+    "1) same animal or plant source; 2) similar nutritional profile (macronutrients, micronutrients, calories "
+    "per serving); 3) same preparation method; 4) semantic and name similarity."
+)
 PAPER_TOPK = {5: (0.757, 0.854), 10: (0.826, 0.951), 25: (0.865, 0.958), 50: (0.896, 0.976)}
 
 
@@ -35,6 +41,8 @@ def main() -> None:
     mode.add_argument("--mock", action="store_true", help="simulated Jev (no key, no cost)")
     mode.add_argument("--live", action="store_true", help="real Jev (needs TYPESAFE_API_KEY, spends tokens)")
     ap.add_argument("--k", type=int, default=30)
+    ap.add_argument("--paper-prompt", action="store_true", help="instruct Jev with the paper's ranked matching criteria")
+    ap.add_argument("--no-none", action="store_true", help="forced choice: drop the 'none of these' option")
     ap.add_argument("--workers", type=int, default=8, help="concurrent Jev requests")
     ap.add_argument("--skip-retrieval-table", action="store_true", help="skip the retrieval-only comparison (slow)")
     ap.add_argument("--out")
@@ -77,7 +85,7 @@ def main() -> None:
         from jevmatcher.mockjev import MockJev
 
         jev = MockJev(simulate_latency=False)
-    m = FnddsMatcher(idx, hybrid, jev, k=a.k)
+    m = FnddsMatcher(idx, hybrid, jev, k=a.k, instructions=PAPER_PROMPT if a.paper_prompt else None, allow_none=not a.no_none)
     out = evaluate_system(idx, m, labs, workers=a.workers)
     items = out.pop("items")
     overall = (n_id + sum(i["exact"] for i in items)) / (n_id + n_txt)
