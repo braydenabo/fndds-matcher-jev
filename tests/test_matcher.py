@@ -166,3 +166,62 @@ def test_dotenv_loads_without_overriding(tmp_path, monkeypatch):
 
     assert (os.environ["A_KEY"], os.environ["B_KEY"], os.environ["C_KEY"], os.environ["KEEP"]) == ("quoted", "plain", "dq", "fromenv")
     monkeypatch.delenv("A_KEY"); monkeypatch.delenv("B_KEY"); monkeypatch.delenv("C_KEY")
+
+
+def test_split_is_deterministic_and_keyed_on_normalized_food():
+    from jevmatcher.evaluate import split_of
+
+    assert split_of("Peanut Butter!") == split_of("peanut butter")
+    sides = [split_of(f"food {i}") for i in range(400)]
+    assert 150 < sides.count("fit") < 250 and set(sides) == {"fit", "test"}
+
+
+def test_nutrient_close():
+    from jevmatcher.evaluate import nutrient_close
+
+    idx = FnddsIndex("t", [
+        Food("1", "A", nutrients={"kcal": 100, "protein_g": 5, "carb_g": 10, "fat_g": 2}),
+        Food("2", "B", nutrients={"kcal": 108, "protein_g": 5.5, "carb_g": 11, "fat_g": 2.5}),
+        Food("3", "C", nutrients={"kcal": 300, "protein_g": 5, "carb_g": 10, "fat_g": 2}),
+    ])
+    assert nutrient_close(idx, "1", "1") and nutrient_close(idx, "2", "1")
+    assert not nutrient_close(idx, "3", "1") and not nutrient_close(idx, None, "1")
+
+
+def test_fit_thresholds_meets_target_and_reports_none_when_unreachable():
+    from jevmatcher.evaluate import fit_thresholds, score_thresholds
+
+    def it(p1, ok):
+        return {"p1": p1, "p2": 0.0, "top_is_none": False, "exact": ok, "near": ok}
+
+    items = [it(0.95, True)] * 6 + [it(0.7, True)] * 2 + [it(0.7, False)] * 4 + [it(0.4, False)] * 3
+    best = fit_thresholds(items, 0.9)
+    assert best["precision"] >= 0.9 and best["t_high"] > 0.7 and best["accepted"] == 6
+    assert score_thresholds(items, best["t_high"], best["margin"])["coverage"] == pytest.approx(6 / 15)
+    assert fit_thresholds([it(0.9, False)] * 3, 0.9) is None
+
+
+def test_evaluate_system_items_and_summary():
+    from jevmatcher.evaluate import Label, evaluate_system
+
+    m = matcher(FakeJev("sandwich, peanut"))
+    out = evaluate_system(INDEX, m, [Label("peanut butter crackers", "54328100"), Label("saltine", "54319000")])
+    items = out.pop("items")
+    assert [i["exact"] for i in items] == [True, False]
+    assert {"split", "true_description", "pred_code", "p1", "p2", "probabilities", "retrieval_top1", "near"} <= set(items[0])
+    assert out["n"] == 2 and out["top1"] == 0.5 and "retrieval_only_top1" in out and "by_split" in out
+
+
+def test_eval_out_creates_missing_directory(tmp_path, monkeypatch):
+    from jevmatcher import cli
+    from jevmatcher.evaluate import Label
+    from jevmatcher.mockjev import MockJev
+
+    idx_path = tmp_path / "idx.json"
+    INDEX.save(idx_path)
+    lab = tmp_path / "labels.csv"
+    lab.write_text("food,code\npeanut butter,42202000\n")
+    out = tmp_path / "nested" / "dir" / "run.json"
+    monkeypatch.setattr("jevmatcher.retrieve.default_retriever", lambda idx: HybridRetriever([FuzzyRetriever(idx), TfidfRetriever(idx)]))
+    cli.main(["--index", str(idx_path), "eval", str(lab), "--mock", "--out", str(out)])
+    assert out.exists() and '"items"' in out.read_text()
