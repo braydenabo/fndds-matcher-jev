@@ -31,11 +31,11 @@ Evaluated on 279 hand-labeled foods (short names from meal photos, each with a t
 
 **Knowing when to trust it.** The foods were split into two halves by a hash of the name, thresholds were fitted on one half and scored on the other.
 
-- Jev's stated confidence is overconfident (expected calibration error 0.22). Even at 95%+ confidence, only about 81% of answers match the label code exactly.
+- Jev's stated confidence is overconfident (expected calibration error 0.22). Even at 95%+ confidence, only about 85% of accepted answers match the label code exactly.
 - For nutritionally equivalent answers it is usable: accepting only confidence of at least 0.96 auto-accepts about 41% of foods at 92.9% precision on the held-out half (91.9% on the fit half). Everything else goes to review.
 
 **Caveats.**
-- Small sample: the held-out accepted set is 56 foods, so the 92.9% has a 95% range of roughly 86-97%.
+- Small sample: the held-out accepted set is 56 foods, so the 92.9% has a 95% interval of roughly 83-97% (Wilson).
 - I chose the retrieval methods by scoring on these same labels, so the retrieval numbers are optimistic.
 
 Reproduce on your own labels: see [Evaluating on your own labels](#evaluating-on-your-own-labels).
