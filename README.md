@@ -130,7 +130,8 @@ Following the paper, inputs whose id equals the target id (1,014 of 1,198, **84.
 | bge-small only | 0.72 | 0.82 | 0.88 | 0.91 |
 | Fuzzy + TF-IDF | 0.59 | 0.73 | 0.84 | 0.92 |
 | This repo's hybrid | 0.70 | 0.84 | 0.90 | 0.92 |
-| Paper, GTE-large (original / modified ground truth) | 0.76 / 0.85 | 0.83 / 0.95 | 0.87 / 0.96 | 0.90 / 0.98 |
+| Paper, GTE-large, original ground truth | 0.76 | 0.83 | 0.87 | 0.90 |
+| Paper, GTE-large, modified ground truth (the version in this file) | 0.79 | 0.92 | 0.93 | 0.96 |
 
 **End to end with live Jev** (same 184 foods; top-1 is the best real candidate, exact match):
 
@@ -142,7 +143,7 @@ Following the paper, inputs whose id equals the target id (1,014 of 1,198, **84.
 
 Paper-style overall accuracy (ids counted correct plus text-only exact) is 90.6-91.0% here against the paper's 90.7%, but 84.6 points of that come from the id shortcut. In short: comparable to the paper, not better. Jev adds about 7-9 points over retrieval alone, and top-1 barely moves with K while candidate recall rises from 73% to 90%, so the choice step, not retrieval, is the limit on this benchmark.
 
-Caveats: the benchmark file differs from the paper's (184 text-only inputs here vs 170 plus 54 one-to-many there), and some text-only labels look loose (for example a raw cut labeled as the answer for a cooked one), so absolute numbers are uncertain. One ground-truth row with no matching target was dropped.
+Caveats: `groundtruth_ASA24toFooDB.txt` differs from the archived original spreadsheet in exactly 43 target entries, which matches the paper's "modified ground truth", so the modified row is the like-for-like comparison. The text-only set is still not identical to the paper's (184 inputs here vs 170 plus 54 one-to-many there), and some text-only labels look loose (for example a raw cut labeled as the answer for a cooked one), so absolute numbers are uncertain. One ground-truth row with no matching target was dropped. On the like-for-like column the paper's GTE-large retrieval is 3-9 points above this repo's hybrid at every K.
 
 ## Related work
 The retrieve-then-choose design follows Lemay et al., who found that selecting top candidates with semantic embeddings and then having an LLM pick one of them, or answer "No Match", worked best for mapping dietary data to food databases ([*J Nutr* 2026;156:101678](https://doi.org/10.1016/j.tjnut.2026.101678); their tool is [FoodMapper](https://foodmapper.app/)).

@@ -24,14 +24,15 @@ from jevmatcher.retrieve import (
 from jevmatcher.targets import load_asa24_foodb
 
 # Semantic-embedding top-K accuracy on the same benchmark's text-only foods, from Lemay et al.
-# Table 5 (GTE-large): original ground truth, then the authors' modified ground truth.
+# Table 5 (GTE-large): original ground truth, then the modified + punctuation version that the rest of the
+# paper used (43 updated targets; this is the version in groundtruth_ASA24toFooDB.txt).
 # Lemay et al.'s hybrid prompt chose by these criteria, in priority order (adapted to Jev's Choice question).
 PAPER_PROMPT = (
     "Which candidate best matches `food`? Decide using these criteria in priority order: "
     "1) same animal or plant source; 2) similar nutritional profile (macronutrients, micronutrients, calories "
     "per serving); 3) same preparation method; 4) semantic and name similarity."
 )
-PAPER_TOPK = {5: (0.757, 0.854), 10: (0.826, 0.951), 25: (0.865, 0.958), 50: (0.896, 0.976)}
+PAPER_TOPK = {5: (0.757, 0.788), 10: (0.826, 0.924), 25: (0.865, 0.929), 50: (0.896, 0.959)}
 
 
 def main() -> None:
