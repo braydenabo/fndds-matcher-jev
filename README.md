@@ -125,25 +125,32 @@ Following the paper, inputs whose id equals the target id (1,014 of 1,198, **84.
 
 **Retrieval** (right entry in the top K, 184 text-only foods), against the paper's GTE-large embedding top-K on the same benchmark:
 
-| | @5 | @10 | @25 | @50 |
-|---|---|---|---|---|
-| bge-small only | 0.72 | 0.82 | 0.88 | 0.91 |
-| Fuzzy + TF-IDF | 0.59 | 0.73 | 0.84 | 0.92 |
-| This repo's hybrid | 0.70 | 0.84 | 0.90 | 0.92 |
-| Paper, GTE-large, original ground truth | 0.76 | 0.83 | 0.87 | 0.90 |
-| Paper, GTE-large, modified ground truth (the version in this file) | 0.79 | 0.92 | 0.93 | 0.96 |
+| | @1 | @5 | @10 | @25 | @50 |
+|---|---|---|---|---|---|
+| bge-small only | 0.46 | 0.72 | 0.82 | 0.88 | 0.91 |
+| Fuzzy + TF-IDF | 0.14 | 0.59 | 0.73 | 0.84 | 0.92 |
+| Hybrid (fuzzy + TF-IDF + head-noun + bge-small) | 0.29 | 0.70 | 0.84 | 0.90 | 0.92 |
+| **GTE-large only** (`--embed-model thenlper/gte-large --dense-only`) | 0.44 | 0.79 | 0.93 | 0.94 | 0.96 |
+| Hybrid with GTE-large | 0.28 | 0.71 | 0.83 | 0.93 | 0.96 |
+| Paper, GTE-large, modified ground truth (the version in this file) | 0.45 | 0.79 | 0.92 | 0.93 | 0.96 |
+| Paper, GTE-large, original ground truth | 0.50 | 0.76 | 0.83 | 0.87 | 0.90 |
+
+GTE-large alone reproduces the paper's numbers to within about half a point, which confirms the benchmark set and ground-truth version are the same. On this benchmark, fusing in the lexical retrievers lowers recall at small K: the inputs are database-style descriptions, where the embedding alone is strongest.
 
 **End to end with live Jev** (same 184 foods; top-1 is the best real candidate, exact match):
 
 | | Top-1 |
 |---|---|
-| Retrieval only (no Jev) | 32% |
-| Jev, K=5 / K=10 / K=30 | 38.6% / 41.3% / 39.7-40.2% (three runs at K=30) |
+| Hybrid retrieval, no Jev | 32% |
+| Jev over the hybrid, K=10 / K=30 | 41.3% / 39.7-40.2% |
+| **GTE-large alone, no Jev** | **44.0%** |
+| Jev over GTE-large, K=10 / K=30 | 40.2% / 41.3% |
+| Paper, embedding alone (Table 5, K=1) | 44.7% |
 | Paper, Claude Haiku / Sonnet over the top 5, on its 170 no-id foods | 42.9% / 45.9% |
 
-Paper-style overall accuracy (ids counted correct plus text-only exact) is 90.6-91.0% here against the paper's 90.7%, but 84.6 points of that come from the id shortcut. In short: comparable to the paper, not better. Jev adds about 7-9 points over retrieval alone, and top-1 barely moves with K while candidate recall rises from 73% to 90%, so the choice step, not retrieval, is the limit on this benchmark.
+Paper-style overall accuracy (ids counted correct plus text-only exact) is 90.6-91.0% here against the paper's 90.7%, but 84.6 points of that come from the id shortcut. **In short: on this benchmark neither Jev nor the paper's LLMs beat the embedding's own first choice** (about 44%), and this repo matches the paper rather than improving on it. Jev only looks helpful over the hybrid retriever because that retriever's top-1 is weak. Sampling noise at 184 foods is about 3.6 points, so differences of a few points are not meaningful. Prompt wording (the paper's ranked criteria) and forced choice without "none of these" made no difference either.
 
-Caveats: `groundtruth_ASA24toFooDB.txt` differs from the archived original spreadsheet in exactly 43 target entries, which matches the paper's "modified ground truth", so the modified row is the like-for-like comparison. The text-only set is still not identical to the paper's (184 inputs here vs 170 plus 54 one-to-many there), and some text-only labels look loose (for example a raw cut labeled as the answer for a cooked one), so absolute numbers are uncertain. One ground-truth row with no matching target was dropped. On the like-for-like column the paper's GTE-large retrieval is 3-9 points above this repo's hybrid at every K.
+Caveats: `groundtruth_ASA24toFooDB.txt` differs from the archived original spreadsheet in exactly 43 target entries, which matches the paper's "modified ground truth". The text-only set is not identical to the paper's (184 inputs here vs 170 plus 54 one-to-many there), and some text-only labels look loose (for example a raw cut labeled as the answer for a cooked one), so absolute numbers are uncertain. One ground-truth row with no matching target was dropped.
 
 ## Related work
 The retrieve-then-choose design follows Lemay et al., who found that selecting top candidates with semantic embeddings and then having an LLM pick one of them, or answer "No Match", worked best for mapping dietary data to food databases ([*J Nutr* 2026;156:101678](https://doi.org/10.1016/j.tjnut.2026.101678); their tool is [FoodMapper](https://foodmapper.app/)).
