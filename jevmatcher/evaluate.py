@@ -224,3 +224,27 @@ def fit_thresholds(
             if s["accepted"] and s["precision"] >= target_precision and (best is None or s["coverage"] > best["coverage"]):
                 best = s
     return best
+
+
+ERROR_ORDER = ["exact", "retrieval_miss", "none_despite_candidate", "close_miss", "same_subgroup_miss", "other_subgroup_miss"]
+
+
+def categorize_error(item: dict) -> str:
+    """Mutually exclusive outcome for one food, by precedence: a food whose true code never made
+    the shortlist is a retrieval miss even if the answer happens to be nutritionally close."""
+    if item["exact"]:
+        return "exact"
+    if not item["in_candidates"]:
+        return "retrieval_miss"
+    if item["top_is_none"]:
+        return "none_despite_candidate"
+    if item["near"]:
+        return "close_miss"
+    return "same_subgroup_miss" if item["same_subgroup"] else "other_subgroup_miss"
+
+
+def error_breakdown(items: list[dict]) -> dict[str, int]:
+    out = dict.fromkeys(ERROR_ORDER, 0)
+    for i in items:
+        out[categorize_error(i)] += 1
+    return out

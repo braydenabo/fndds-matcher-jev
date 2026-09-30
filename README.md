@@ -38,7 +38,7 @@ Evaluated on 279 hand-labeled foods (short names from meal photos, each with a t
 - Small sample: the held-out accepted set is 56 foods, so the 92.9% has a 95% interval of roughly 83-97% (Wilson).
 - I chose the retrieval methods by scoring on these same labels, so the retrieval numbers are optimistic.
 
-Reproduce on your own labels: see [Evaluating on your own labels](#evaluating-on-your-own-labels).
+Write-up with the full evaluation and error analysis: [`paper/main.tex`](paper/main.tex). Reproduce on your own labels: see [Evaluating on your own labels](#evaluating-on-your-own-labels).
 
 ## Quickstart
 

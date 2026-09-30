@@ -227,14 +227,21 @@ def test_eval_out_creates_missing_directory(tmp_path, monkeypatch):
     assert out.exists() and '"items"' in out.read_text()
 
 
-def test_parallel_evaluation_matches_sequential():
-    from jevmatcher.evaluate import Label, evaluate_system
+def test_error_breakdown_precedence():
+    from jevmatcher.evaluate import categorize_error, error_breakdown
 
-    labels = [Label("peanut butter crackers", "54328100"), Label("saltine", "54319000"), Label("peanut butter", "42202000")] * 4
-    seq = evaluate_system(INDEX, matcher(FakeJev("sandwich, peanut")), labels, batch=2, workers=1)
-    par = evaluate_system(INDEX, matcher(FakeJev("sandwich, peanut")), labels, batch=2, workers=4)
-    key = lambda out: [(i["food"], i["pred_code"], i["status"]) for i in out["items"]]  # noqa: E731
-    assert key(seq) == key(par) and seq["top1"] == par["top1"]
+    base = {"exact": False, "in_candidates": True, "top_is_none": False, "near": False, "same_subgroup": False}
+    cases = {
+        "exact": {"exact": True},
+        "retrieval_miss": {"in_candidates": False, "near": True},  # retrieval miss wins over near
+        "none_despite_candidate": {"top_is_none": True},
+        "close_miss": {"near": True},
+        "same_subgroup_miss": {"same_subgroup": True},
+        "other_subgroup_miss": {},
+    }
+    items = [base | c for c in cases.values()]
+    assert [categorize_error(i) for i in items] == list(cases)
+    assert sum(error_breakdown(items).values()) == len(items) and set(error_breakdown(items).values()) == {1}
 
 
 def test_target_index_identifies_targets_by_description(tmp_path):
@@ -256,6 +263,16 @@ def test_target_index_identifies_targets_by_description(tmp_path):
     assert [l.code for l in bm.id_matched] == ['kiwi "green"']
     assert [(l.food, l.code) for l in bm.text_only] == [("spring onion", "onion"), ("beef", "beef")]
     assert all(l.code in {f.code for f in bm.index.foods} for l in bm.text_only)
+
+
+def test_parallel_evaluation_matches_sequential():
+    from jevmatcher.evaluate import Label, evaluate_system
+
+    labels = [Label("peanut butter crackers", "54328100"), Label("saltine", "54319000"), Label("peanut butter", "42202000")] * 4
+    seq = evaluate_system(INDEX, matcher(FakeJev("sandwich, peanut")), labels, batch=2, workers=1)
+    par = evaluate_system(INDEX, matcher(FakeJev("sandwich, peanut")), labels, batch=2, workers=4)
+    key = lambda out: [(i["food"], i["pred_code"], i["status"]) for i in out["items"]]  # noqa: E731
+    assert key(seq) == key(par) and seq["top1"] == par["top1"]
 
 
 def test_custom_instructions_and_forced_choice():
