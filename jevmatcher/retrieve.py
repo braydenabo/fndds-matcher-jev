@@ -161,11 +161,14 @@ class FastEmbedder:
         return out
 
 
-def default_retriever(index: FnddsIndex, embed="bge-small", dense: bool = True) -> HybridRetriever:
+def default_retriever(index: FnddsIndex, embed="bge-small", dense: bool = True, embed_model: str | None = None) -> HybridRetriever:
     """fuzzy + char TF-IDF + head-noun + dense (bge-small). Chosen by Recall@30 on the labeled set;
     see README. Pass dense=False to skip the model download, or embed=<callable> to swap models."""
     rs: list[Retriever] = [FuzzyRetriever(index), TfidfRetriever(index), HeadNounRetriever(index)]
     if dense:
-        fn = FastEmbedder("BAAI/bge-small-en-v1.5", tag=index.release) if embed == "bge-small" else embed
+        if embed_model:  # any fastembed model name, e.g. "thenlper/gte-large"
+            fn = FastEmbedder(embed_model, tag=index.release)
+        else:
+            fn = FastEmbedder("BAAI/bge-small-en-v1.5", tag=index.release) if embed == "bge-small" else embed
         rs.append(EmbeddingRetriever(index, fn))
     return HybridRetriever(rs)

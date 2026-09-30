@@ -1,6 +1,8 @@
 # fndds-matcher-jev
 
-Match free-text food descriptions to USDA **FNDDS** food codes, using retrieval to shortlist candidates and [TypeSafe's Jev](https://docs.typesafe.ai/introduction) to pick one. It returns a code, a calibrated confidence, ranked alternatives, or an explicit "no confident match".
+[![CI](https://github.com/braydenabo/fndds-matcher-jev/actions/workflows/ci.yml/badge.svg)](https://github.com/braydenabo/fndds-matcher-jev/actions/workflows/ci.yml)
+
+Match free-text food descriptions to USDA **FNDDS** food codes, using retrieval to shortlist candidates and [TypeSafe's Jev](https://docs.typesafe.ai/introduction) to pick one. It returns a code, a confidence score, ranked alternatives, or an explicit "no confident match".
 
 The repo includes a small web app that walks through each step (normalize, retrieve, shortlist, Jev, decide) and shows tokens, cost and latency.
 
@@ -10,15 +12,33 @@ food string -> normalize -> retrieve top-K -> Jev Choice -> (verify) -> accepted
                             head-noun + bge-small
 ```
 
-
-
-
-
 https://github.com/user-attachments/assets/007fe594-1532-4dde-ad80-9dcbe85c9685
 
+## Results
 
+Evaluated on 279 hand-labeled foods (short names from meal photos, each with a true FNDDS code; the set is private and not in this repo). 
 
+| | Result |
+|---|---|
+| Retrieval shortlist contains the right code (Recall@30) | 89.6% |
+| Top-1 exact code, retrieval alone | 44.1% |
+| **Top-1 exact code, with Jev** | **59.1%** (+15 points) |
+| Top-1 **nutritionally equivalent** code* | 78.1% |
+| Same food group / same 3-digit subgroup | 96.1% / 90.0% |
+| Cost for all 279 foods | about $0.01 (about $0.035 per 1,000) |
 
+\*Exact code, or kcal within max(15, 10%) and protein/carbs/fat each within max(2 g, 15%) per 100 g. The tolerances are my own choice, so read this as a rough guide to how costly the misses are.
+
+**Knowing when to trust it.** The foods were split into two halves by a hash of the name, thresholds were fitted on one half and scored on the other.
+
+- Jev's stated confidence is overconfident (expected calibration error 0.22). Even at 95%+ confidence, only about 85% of accepted answers match the label code exactly.
+- For nutritionally equivalent answers it is usable: accepting only confidence of at least 0.96 auto-accepts about 41% of foods at 92.9% precision on the held-out half (91.9% on the fit half). Everything else goes to review.
+
+**Caveats.**
+- Small sample: the held-out accepted set is 56 foods, so the 92.9% has a 95% interval of roughly 83-97% (Wilson).
+- I chose the retrieval methods by scoring on these same labels, so the retrieval numbers are optimistic.
+
+Write-up with the full evaluation and error analysis: [`paper/main.tex`](paper/main.tex). Reproduce on your own labels: see [Evaluating on your own labels](#evaluating-on-your-own-labels).
 
 ## Quickstart
 
@@ -68,9 +88,14 @@ JEV_MOCK=1 .venv/bin/uvicorn jevmatcher.web:create_app --factory --port 8000
 Create `data/labels.csv` (see `data/labels.example.csv`) with columns `food, code [, context, tier]`. Codes are 8-digit FNDDS codes from the release you downloaded. Rows with a non-numeric code are skipped.
 
 ```bash
-.venv/bin/jevmatcher recall data/labels.csv   # retrieval Recall@K, no key needed
-.venv/bin/jevmatcher eval data/labels.csv     # full system: top-1/3, nutrient distance, calibration (needs key)
+.venv/bin/jevmatcher recall data/labels.csv                                   # retrieval Recall@K, no key needed
+.venv/bin/jevmatcher eval data/labels.csv --out results/run1.json             # full system (needs key)
+.venv/bin/jevmatcher fit-thresholds results/run1.json --target 0.9            # pick accept thresholds
 ```
+`eval` reports exact-code top-1/top-3 next to the retrieval-only baseline, a "nutrient-close" top-1 (a wrong code with near-identical per-100 g macros counts as a cheap error), calibration, and coverage vs precision, overall and per easy/medium/hard tier. With `--out` it saves every food's prediction, probabilities and status, so you can read the confidently-wrong cases. Add `--mock` to try the flow without a key (numbers are meaningless).
+
+Foods are split into a **fit** and a **test** half by a hash of the food string, so the same food never lands on both sides. `fit-thresholds` chooses the accept thresholds with the most coverage that still meet the target precision on the fit half, then reports both halves. Report the test half.
+
 Recall@K is the ceiling for the whole system: Jev can only pick from the shortlist.
 
 ## How retrieval works
@@ -83,7 +108,54 @@ Four independent searches, merged by reciprocal-rank fusion (each list scores 1/
 | Head-noun | generic words ("egg", "carrots") landing on the general entry |
 | bge-small embeddings | meaning ("sugar substitute" ~ "Swerve") |
 
-Each was added because it fixed a class of misses; `jevmatcher/retrieve.py` has the details. Recall depends on your labels, so measure it on your own data.
+
+## Benchmark comparison (ASA24-to-FooDB)
+The benchmark from Lemay et al. maps 1,199 USDA-style food descriptions to 9,913 FooDB entries. Its repo has no license, so it is not redistributed here; download it locally (git-ignored):
+```bash
+mkdir -p data/benchmarks/asa24_foodb && cd data/benchmarks/asa24_foodb
+B=https://raw.githubusercontent.com/dglemay/USDA-Food-Mapping/main/benchmark_datasets/ASA24-to-FoodB/dataset
+curl -O $B/groundtruth_ASA24toFooDB.txt && curl -O $B/target_desc_fooDB.txt
+cd ../../..
+```
+```bash
+.venv/bin/python scripts/eval_asa24.py data/benchmarks/asa24_foodb                      # retrieval only, no key
+.venv/bin/python scripts/eval_asa24.py data/benchmarks/asa24_foodb --live --skip-retrieval-table --out results/asa24.json   # real Jev, about 20 s
+```
+Following the paper, inputs whose id equals the target id (1,014 of 1,198, **84.6% with no model at all**) are matched by id, and the test is the 184 text-only inputs. Targets are identified by description text, because FooDB ids are unreliable here: about 12% are blank and a labeled target's id can differ from the id the same description has in the target list.
+
+**Retrieval** (right entry in the top K, 184 text-only foods), against the paper's GTE-large embedding top-K on the same benchmark:
+
+| | @1 | @5 | @10 | @25 | @50 |
+|---|---|---|---|---|---|
+| bge-small only | 0.46 | 0.72 | 0.82 | 0.88 | 0.91 |
+| Fuzzy + TF-IDF | 0.14 | 0.59 | 0.73 | 0.84 | 0.92 |
+| Hybrid (fuzzy + TF-IDF + head-noun + bge-small) | 0.29 | 0.70 | 0.84 | 0.90 | 0.92 |
+| **GTE-large only** (`--embed-model thenlper/gte-large --dense-only`) | 0.44 | 0.79 | 0.93 | 0.94 | 0.96 |
+| Hybrid with GTE-large | 0.28 | 0.71 | 0.83 | 0.93 | 0.96 |
+| Paper, GTE-large, modified ground truth (the version in this file) | 0.45 | 0.79 | 0.92 | 0.93 | 0.96 |
+| Paper, GTE-large, original ground truth | 0.50 | 0.76 | 0.83 | 0.87 | 0.90 |
+
+GTE-large alone reproduces the paper's numbers to within about half a point, which confirms the benchmark set and ground-truth version are the same. On this benchmark, fusing in the lexical retrievers lowers recall at small K: the inputs are database-style descriptions, where the embedding alone is strongest.
+
+**End to end with live Jev** (same 184 foods; top-1 is the best real candidate, exact match):
+
+| | Top-1 |
+|---|---|
+| Hybrid retrieval, no Jev | 32% |
+| Jev over the hybrid, K=10 / K=30 | 41.3% / 39.7-40.2% |
+| **GTE-large alone, no Jev** | **44.0%** |
+| Jev over GTE-large, K=10 / K=30 | 40.2% / 41.3% |
+| Paper, embedding alone (Table 5, K=1) | 44.7% |
+| Paper, Claude Haiku / Sonnet over the top 5, on its 170 no-id foods | 42.9% / 45.9% |
+
+Paper-style overall accuracy (ids counted correct plus text-only exact) is 90.6-91.0% here against the paper's 90.7%, but 84.6 points of that come from the id shortcut. **In short: on this benchmark neither Jev nor the paper's LLMs beat the embedding's own first choice** (about 44%), and this repo matches the paper rather than improving on it. Jev only looks helpful over the hybrid retriever because that retriever's top-1 is weak. Sampling noise at 184 foods is about 3.6 points, so differences of a few points are not meaningful. Prompt wording (the paper's ranked criteria) and forced choice without "none of these" made no difference either.
+
+Caveats: `groundtruth_ASA24toFooDB.txt` differs from the archived original spreadsheet in exactly 43 target entries, which matches the paper's "modified ground truth". The text-only set is not identical to the paper's (184 inputs here vs 170 plus 54 one-to-many there), and some text-only labels look loose (for example a raw cut labeled as the answer for a cooked one), so absolute numbers are uncertain. One ground-truth row with no matching target was dropped.
+
+## Related work
+The retrieve-then-choose design follows Lemay et al., who found that selecting top candidates with semantic embeddings and then having an LLM pick one of them, or answer "No Match", worked best for mapping dietary data to food databases ([*J Nutr* 2026;156:101678](https://doi.org/10.1016/j.tjnut.2026.101678); their tool is [FoodMapper](https://foodmapper.app/)).
+
+This project differs in three ways: retrieval fuses four methods instead of embeddings alone, the chooser is a model that returns a probability per option (Jev) so that selective acceptance can be measured, and the target is FNDDS with short, noisy inputs. It has **not** been run on their benchmark datasets, so no claim is made that it outperforms their method; the numbers above are not comparable to theirs.
 
 ## Layout
 ```
@@ -96,8 +168,8 @@ tests/        pytest suite (offline; no key needed)
 ## Notes
 - `jev.py` follows Jev's public API reference: `POST https://api.typesafe.ai/v1/systemone`, Choice questions are `{type, instructions, criteria}`. Confirm against the live API before trusting timings or calibration.
 - Text you type is sent to TypeSafe in live mode. Do not enter anything sensitive.
-- Thresholds in `Thresholds` (`t_high`, `margin`) are placeholders. Fit them on labeled data.
-- FNDDS is versioned about every two years; the release is pinned, and a new one means re-indexing and re-evaluating.
+- The default accept thresholds in `Thresholds` (`t_high=0.6`, `margin=0.2`) are deliberately loose placeholders. On my labels a much higher confidence (about 0.96) was needed for ~93% nutritional precision; fit your own with `jevmatcher fit-thresholds`.
+
 
 ## Development
 ```bash

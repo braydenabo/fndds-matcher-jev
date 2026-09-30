@@ -85,6 +85,8 @@ class FnddsMatcher:
         verify: bool = False,
         thresholds: Thresholds = Thresholds(),
         use_additional_as_criteria: bool = True,
+        instructions: str | None = None,
+        allow_none: bool = True,
         seed: int = 0,
         jev_model_label: str = "jev-latest",
     ):
@@ -92,6 +94,11 @@ class FnddsMatcher:
         self.k, self.shuffles, self.verify = k, shuffles, verify
         self.thresholds = thresholds
         self.use_additional = use_additional_as_criteria
+        self.allow_none = allow_none
+        base = instructions or CHOICE_INSTRUCTIONS
+        if not allow_none and base == CHOICE_INSTRUCTIONS:
+            base = CHOICE_INSTRUCTIONS.split(" Choose ")[0]
+        self._choice_instructions = base
         self._rng = random.Random(seed)
         self._label = jev_model_label
 
@@ -105,7 +112,8 @@ class FnddsMatcher:
             f = foods[i]
             extra = "; ".join(f.additional + f.common_names) if self.use_additional else ""
             crit[f.description] = extra or None
-        crit[NONE_OPTION] = "No candidate is a good match for the food."
+        if self.allow_none:
+            crit[NONE_OPTION] = "No candidate is a good match for the food."
         return crit
 
     def _orders(self, n: int) -> list[list[int]]:
@@ -117,7 +125,7 @@ class FnddsMatcher:
         return orders
 
     def _questions(self, food: str, norm: str, context: dict | None, foods: list[Food], prefix: str = "") -> dict:
-        ins = _instructions(CHOICE_INSTRUCTIONS, food, norm, context)
+        ins = _instructions(self._choice_instructions, food, norm, context)
         return {
             f"{prefix}match_{j}": choice_question(ins, self._criteria(foods, order))
             for j, order in enumerate(self._orders(len(foods)))

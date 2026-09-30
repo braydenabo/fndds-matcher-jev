@@ -166,3 +166,125 @@ def test_dotenv_loads_without_overriding(tmp_path, monkeypatch):
 
     assert (os.environ["A_KEY"], os.environ["B_KEY"], os.environ["C_KEY"], os.environ["KEEP"]) == ("quoted", "plain", "dq", "fromenv")
     monkeypatch.delenv("A_KEY"); monkeypatch.delenv("B_KEY"); monkeypatch.delenv("C_KEY")
+
+
+def test_split_is_deterministic_and_keyed_on_normalized_food():
+    from jevmatcher.evaluate import split_of
+
+    assert split_of("Peanut Butter!") == split_of("peanut butter")
+    sides = [split_of(f"food {i}") for i in range(400)]
+    assert 150 < sides.count("fit") < 250 and set(sides) == {"fit", "test"}
+
+
+def test_nutrient_close():
+    from jevmatcher.evaluate import nutrient_close
+
+    idx = FnddsIndex("t", [
+        Food("1", "A", nutrients={"kcal": 100, "protein_g": 5, "carb_g": 10, "fat_g": 2}),
+        Food("2", "B", nutrients={"kcal": 108, "protein_g": 5.5, "carb_g": 11, "fat_g": 2.5}),
+        Food("3", "C", nutrients={"kcal": 300, "protein_g": 5, "carb_g": 10, "fat_g": 2}),
+    ])
+    assert nutrient_close(idx, "1", "1") and nutrient_close(idx, "2", "1")
+    assert not nutrient_close(idx, "3", "1") and not nutrient_close(idx, None, "1")
+
+
+def test_fit_thresholds_meets_target_and_reports_none_when_unreachable():
+    from jevmatcher.evaluate import fit_thresholds, score_thresholds
+
+    def it(p1, ok):
+        return {"p1": p1, "p2": 0.0, "top_is_none": False, "exact": ok, "near": ok}
+
+    items = [it(0.95, True)] * 6 + [it(0.7, True)] * 2 + [it(0.7, False)] * 4 + [it(0.4, False)] * 3
+    best = fit_thresholds(items, 0.9)
+    assert best["precision"] >= 0.9 and best["t_high"] > 0.7 and best["accepted"] == 6
+    assert score_thresholds(items, best["t_high"], best["margin"])["coverage"] == pytest.approx(6 / 15)
+    assert fit_thresholds([it(0.9, False)] * 3, 0.9) is None
+
+
+def test_evaluate_system_items_and_summary():
+    from jevmatcher.evaluate import Label, evaluate_system
+
+    m = matcher(FakeJev("sandwich, peanut"))
+    out = evaluate_system(INDEX, m, [Label("peanut butter crackers", "54328100"), Label("saltine", "54319000")])
+    items = out.pop("items")
+    assert [i["exact"] for i in items] == [True, False]
+    assert {"split", "true_description", "pred_code", "p1", "p2", "probabilities", "retrieval_top1", "near"} <= set(items[0])
+    assert out["n"] == 2 and out["top1"] == 0.5 and "retrieval_only_top1" in out and "by_split" in out
+
+
+def test_eval_out_creates_missing_directory(tmp_path, monkeypatch):
+    from jevmatcher import cli
+    from jevmatcher.evaluate import Label
+    from jevmatcher.mockjev import MockJev
+
+    idx_path = tmp_path / "idx.json"
+    INDEX.save(idx_path)
+    lab = tmp_path / "labels.csv"
+    lab.write_text("food,code\npeanut butter,42202000\n")
+    out = tmp_path / "nested" / "dir" / "run.json"
+    monkeypatch.setattr("jevmatcher.retrieve.default_retriever", lambda idx: HybridRetriever([FuzzyRetriever(idx), TfidfRetriever(idx)]))
+    cli.main(["--index", str(idx_path), "eval", str(lab), "--mock", "--out", str(out)])
+    assert out.exists() and '"items"' in out.read_text()
+
+
+def test_error_breakdown_precedence():
+    from jevmatcher.evaluate import categorize_error, error_breakdown
+
+    base = {"exact": False, "in_candidates": True, "top_is_none": False, "near": False, "same_subgroup": False}
+    cases = {
+        "exact": {"exact": True},
+        "retrieval_miss": {"in_candidates": False, "near": True},  # retrieval miss wins over near
+        "none_despite_candidate": {"top_is_none": True},
+        "close_miss": {"near": True},
+        "same_subgroup_miss": {"same_subgroup": True},
+        "other_subgroup_miss": {},
+    }
+    items = [base | c for c in cases.values()]
+    assert [categorize_error(i) for i in items] == list(cases)
+    assert sum(error_breakdown(items).values()) == len(items) and set(error_breakdown(items).values()) == {1}
+
+
+def test_target_index_identifies_targets_by_description(tmp_path):
+    from jevmatcher.targets import build_target_index, load_asa24_foodb
+
+    idx = build_target_index([("1", "kiwi"), ("", "onion"), ("3", "onion"), ("", "canola oil"), ("4", "kiwi")], "t")
+    assert [f.description for f in idx.foods] == ["kiwi", "onion", "canola oil"]  # repeats collapse, blank ids survive
+    assert [f.code for f in idx.foods] == ["kiwi", "onion", "canola oil"]
+
+    (tmp_path / "target_desc_fooDB.txt").write_text('target_desc\ttarget_id\nkiwi "green"\t10\nonion\t\nbeef\t7\n')
+    (tmp_path / "groundtruth_ASA24toFooDB.txt").write_text(
+        "input_id\tinput_desc\ttarget_desc\ttarget_id\n"
+        '10\tkiwi "green"\tkiwi "green"\t10\n'  # same id: matched by id
+        "5\tspring onion\tonion\t\n"  # blank target id: text-only, scored by description
+        "8\tbeef\tbeef\t9\n"  # label id differs from the list's id for the same description: still text-only
+    )
+    bm = load_asa24_foodb(tmp_path)
+    assert len(bm.index) == 3
+    assert [l.code for l in bm.id_matched] == ['kiwi "green"']
+    assert [(l.food, l.code) for l in bm.text_only] == [("spring onion", "onion"), ("beef", "beef")]
+    assert all(l.code in {f.code for f in bm.index.foods} for l in bm.text_only)
+
+
+def test_parallel_evaluation_matches_sequential():
+    from jevmatcher.evaluate import Label, evaluate_system
+
+    labels = [Label("peanut butter crackers", "54328100"), Label("saltine", "54319000"), Label("peanut butter", "42202000")] * 4
+    seq = evaluate_system(INDEX, matcher(FakeJev("sandwich, peanut")), labels, batch=2, workers=1)
+    par = evaluate_system(INDEX, matcher(FakeJev("sandwich, peanut")), labels, batch=2, workers=4)
+    key = lambda out: [(i["food"], i["pred_code"], i["status"]) for i in out["items"]]  # noqa: E731
+    assert key(seq) == key(par) and seq["top1"] == par["top1"]
+
+
+def test_custom_instructions_and_forced_choice():
+    m = matcher(FakeJev("saltine"), instructions="Pick by preparation first.", allow_none=False)
+    r = m.match("crackers")
+    crit = m.jev.calls[0]["f0_match_0"]["criteria"]
+    assert NONE_OPTION not in crit
+    assert m.jev.calls[0]["f0_match_0"]["instructions"]["question"] == "Pick by preparation first."
+    assert r.code == "54319000"
+    default = matcher(FakeJev("saltine"))
+    default.match("crackers")
+    assert NONE_OPTION in default.jev.calls[0]["f0_match_0"]["criteria"]
+    no_none_default = matcher(FakeJev("saltine"), allow_none=False)
+    no_none_default.match("crackers")
+    assert "none of these" not in no_none_default.jev.calls[0]["f0_match_0"]["instructions"]["question"].lower()
