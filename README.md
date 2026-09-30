@@ -109,6 +109,46 @@ Four independent searches, merged by reciprocal-rank fusion (each list scores 1/
 | bge-small embeddings | meaning ("sugar substitute" ~ "Swerve") |
 
 
+## Benchmark comparison (ASA24-to-FooDB)
+The benchmark from Lemay et al. maps 1,199 USDA-style food descriptions to 9,913 FooDB entries. Its repo has no license, so it is not redistributed here; download it locally (git-ignored):
+```bash
+mkdir -p data/benchmarks/asa24_foodb && cd data/benchmarks/asa24_foodb
+B=https://raw.githubusercontent.com/dglemay/USDA-Food-Mapping/main/benchmark_datasets/ASA24-to-FoodB/dataset
+curl -O $B/groundtruth_ASA24toFooDB.txt && curl -O $B/target_desc_fooDB.txt
+cd ../../..
+```
+```bash
+.venv/bin/python scripts/eval_asa24.py data/benchmarks/asa24_foodb                      # retrieval only, no key
+.venv/bin/python scripts/eval_asa24.py data/benchmarks/asa24_foodb --live --skip-retrieval-table --out results/asa24.json   # real Jev, about 20 s
+```
+Following the paper, inputs whose id equals the target id (1,014 of 1,198, **84.6% with no model at all**) are matched by id, and the test is the 184 text-only inputs. Targets are identified by description text, because FooDB ids are unreliable here: about 12% are blank and a labeled target's id can differ from the id the same description has in the target list.
+
+**Retrieval** (right entry in the top K, 184 text-only foods), against the paper's GTE-large embedding top-K on the same benchmark:
+
+| | @5 | @10 | @25 | @50 |
+|---|---|---|---|---|
+| bge-small only | 0.72 | 0.82 | 0.88 | 0.91 |
+| Fuzzy + TF-IDF | 0.59 | 0.73 | 0.84 | 0.92 |
+| This repo's hybrid | 0.70 | 0.84 | 0.90 | 0.92 |
+| Paper, GTE-large (original / modified ground truth) | 0.76 / 0.85 | 0.83 / 0.95 | 0.87 / 0.96 | 0.90 / 0.98 |
+
+**End to end with live Jev** (same 184 foods; top-1 is the best real candidate, exact match):
+
+| | Top-1 |
+|---|---|
+| Retrieval only (no Jev) | 32% |
+| Jev, K=5 / K=10 / K=30 | 38.6% / 41.3% / 39.7-40.2% (three runs at K=30) |
+| Paper, Claude Haiku / Sonnet over the top 5, on its 170 no-id foods | 42.9% / 45.9% |
+
+Paper-style overall accuracy (ids counted correct plus text-only exact) is 90.6-91.0% here against the paper's 90.7%, but 84.6 points of that come from the id shortcut. In short: comparable to the paper, not better. Jev adds about 7-9 points over retrieval alone, and top-1 barely moves with K while candidate recall rises from 73% to 90%, so the choice step, not retrieval, is the limit on this benchmark.
+
+Caveats: the benchmark file differs from the paper's (184 text-only inputs here vs 170 plus 54 one-to-many there), and some text-only labels look loose (for example a raw cut labeled as the answer for a cooked one), so absolute numbers are uncertain. One ground-truth row with no matching target was dropped.
+
+## Related work
+The retrieve-then-choose design follows Lemay et al., who found that selecting top candidates with semantic embeddings and then having an LLM pick one of them, or answer "No Match", worked best for mapping dietary data to food databases ([*J Nutr* 2026;156:101678](https://doi.org/10.1016/j.tjnut.2026.101678); their tool is [FoodMapper](https://foodmapper.app/)).
+
+This project differs in three ways: retrieval fuses four methods instead of embeddings alone, the chooser is a model that returns a probability per option (Jev) so that selective acceptance can be measured, and the target is FNDDS with short, noisy inputs. It has **not** been run on their benchmark datasets, so no claim is made that it outperforms their method; the numbers above are not comparable to theirs.
+
 ## Layout
 ```
 jevmatcher/   fndds.py (data), normalize.py, retrieve.py, jev.py (API client), matcher.py (pipeline),
