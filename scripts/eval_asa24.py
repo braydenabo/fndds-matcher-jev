@@ -44,6 +44,8 @@ def main() -> None:
     ap.add_argument("--k", type=int, default=30)
     ap.add_argument("--paper-prompt", action="store_true", help="instruct Jev with the paper's ranked matching criteria")
     ap.add_argument("--no-none", action="store_true", help="forced choice: drop the 'none of these' option")
+    ap.add_argument("--embed-model", help='fastembed model for the dense retriever (default bge-small), e.g. "thenlper/gte-large"')
+    ap.add_argument("--dense-only", action="store_true", help="retrieve with the embedding model alone (the paper's setup)")
     ap.add_argument("--workers", type=int, default=8, help="concurrent Jev requests")
     ap.add_argument("--skip-retrieval-table", action="store_true", help="skip the retrieval-only comparison (slow)")
     ap.add_argument("--out")
@@ -59,13 +61,17 @@ def main() -> None:
         print(f"dropped {len(bm.text_only) - len(labs)} text-only labels whose target is not in the target list")
     print(f"targets {len(idx)} | inputs {n_id + n_txt}: {n_id} matched by id, {n_txt} text-only (the test)")
 
-    hybrid = default_retriever(idx)
+    hybrid = default_retriever(idx, embed_model=a.embed_model)
+    if a.dense_only:
+        hybrid = EmbeddingRetriever(idx, FastEmbedder(a.embed_model or "BAAI/bge-small-en-v1.5", tag=idx.release))
     if not a.skip_retrieval_table:  # about 5 extra searches per food, so it dominates the runtime
-        emb = EmbeddingRetriever(idx, FastEmbedder("BAAI/bge-small-en-v1.5", tag=idx.release))
+        model = a.embed_model or "BAAI/bge-small-en-v1.5"
+        emb = EmbeddingRetriever(idx, FastEmbedder(model, tag=idx.release))
+        short = model.split("/")[-1]
         configs = {
-            "bge-small only": emb,
+            f"{short} only": emb,
             "Fuzzy + TF-IDF": HybridRetriever([FuzzyRetriever(idx), TfidfRetriever(idx)]),
-            "Hybrid (default)": hybrid,
+            f"Hybrid ({short})": hybrid,
         }
         ks = (1, 5, 10, 25, 50)
         print(f"\nRetrieval on the {n_txt} text-only foods (recall@K = right FooDB entry in top K):")
