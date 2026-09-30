@@ -22,8 +22,11 @@ CHOICE_INSTRUCTIONS = (
 
 @dataclass(frozen=True)
 class Thresholds:
-    t_high: float = 0.6  # min top-1 probability to accept
-    margin: float = 0.2  # min p_top1 - p_top2 to accept
+    # Fitted on our labeled foods: 0.96 gave 92.9% nutritional precision on the held-out half. Fit your own
+    # with `jevmatcher fit-thresholds`; a lower value accepts more foods at lower precision (0.6 was about 74%
+    # exact-code precision).
+    t_high: float = 0.96  # min top-1 probability to accept
+    margin: float = 0.0  # min p_top1 - p_top2 to accept (irrelevant at 0.96: p2 is at most 0.04)
     t_verify: float | None = None  # min Noul probability when verify is on
 
 

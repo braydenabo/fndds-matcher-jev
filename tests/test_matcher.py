@@ -22,7 +22,7 @@ INDEX = FnddsIndex("test", FOODS)
 class FakeJev:
     """Puts `p` on the option whose text contains `pick`, spreading the rest evenly."""
 
-    def __init__(self, pick: str, p: float = 0.9, noul: float = 0.9):
+    def __init__(self, pick: str, p: float = 0.99, noul: float = 0.9):
         self.pick, self.p, self.noul, self.calls = pick, p, noul, []
 
     def ask(self, state, questions):
@@ -74,14 +74,14 @@ def test_decide_rules():
 
 
 def test_shuffles_ask_permuted_questions_and_average():
-    jev = FakeJev("saltine", p=0.9)
+    jev = FakeJev("saltine", p=0.99)
     m = matcher(jev, shuffles=3)
     r = m.match("crackers")
     qs = jev.calls[0]
     assert len(qs) == 3
     orders = {tuple(q["criteria"]) for q in qs.values()}
     assert len(orders) > 1
-    assert r.code == "54319000" and r.confidence == pytest.approx(0.9)
+    assert r.code == "54319000" and r.confidence == pytest.approx(0.99)
 
 
 def test_verify_can_downgrade():
@@ -288,3 +288,10 @@ def test_custom_instructions_and_forced_choice():
     no_none_default = matcher(FakeJev("saltine"), allow_none=False)
     no_none_default.match("crackers")
     assert "none of these" not in no_none_default.jev.calls[0]["f0_match_0"]["instructions"]["question"].lower()
+
+
+def test_default_accept_threshold_is_the_fitted_value():
+    th = Thresholds()
+    assert (th.t_high, th.margin) == (0.96, 0.0)
+    assert decide([("a", 0.97), ("b", 0.02)], th) == "accepted"
+    assert decide([("a", 0.9), ("b", 0.05)], th) == "review"
