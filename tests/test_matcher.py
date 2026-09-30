@@ -235,3 +235,24 @@ def test_parallel_evaluation_matches_sequential():
     par = evaluate_system(INDEX, matcher(FakeJev("sandwich, peanut")), labels, batch=2, workers=4)
     key = lambda out: [(i["food"], i["pred_code"], i["status"]) for i in out["items"]]  # noqa: E731
     assert key(seq) == key(par) and seq["top1"] == par["top1"]
+
+
+def test_target_index_identifies_targets_by_description(tmp_path):
+    from jevmatcher.targets import build_target_index, load_asa24_foodb
+
+    idx = build_target_index([("1", "kiwi"), ("", "onion"), ("3", "onion"), ("", "canola oil"), ("4", "kiwi")], "t")
+    assert [f.description for f in idx.foods] == ["kiwi", "onion", "canola oil"]  # repeats collapse, blank ids survive
+    assert [f.code for f in idx.foods] == ["kiwi", "onion", "canola oil"]
+
+    (tmp_path / "target_desc_fooDB.txt").write_text('target_desc\ttarget_id\nkiwi "green"\t10\nonion\t\nbeef\t7\n')
+    (tmp_path / "groundtruth_ASA24toFooDB.txt").write_text(
+        "input_id\tinput_desc\ttarget_desc\ttarget_id\n"
+        '10\tkiwi "green"\tkiwi "green"\t10\n'  # same id: matched by id
+        "5\tspring onion\tonion\t\n"  # blank target id: text-only, scored by description
+        "8\tbeef\tbeef\t9\n"  # label id differs from the list's id for the same description: still text-only
+    )
+    bm = load_asa24_foodb(tmp_path)
+    assert len(bm.index) == 3
+    assert [l.code for l in bm.id_matched] == ['kiwi "green"']
+    assert [(l.food, l.code) for l in bm.text_only] == [("spring onion", "onion"), ("beef", "beef")]
+    assert all(l.code in {f.code for f in bm.index.foods} for l in bm.text_only)
